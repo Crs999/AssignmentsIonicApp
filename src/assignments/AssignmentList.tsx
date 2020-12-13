@@ -15,16 +15,18 @@ import {
   IonSelectOption,
   IonSelect,
   IonSearchbar,
-  IonLabel, IonChip, IonAlert
+  IonLabel, IonChip, IonAlert,
+    IonToast
 } from '@ionic/react';
 import {add, cloud, cloudOffline} from 'ionicons/icons';
 import Assignment from './Assignment';
 import { getLogger } from '../core';
-import { AssignmentContext } from './AssignmentProvider';
+import {AssignmentContext, conflicts} from './AssignmentProvider';
 import {AuthContext} from "../authentication";
 import {AssignmentProperties} from "./AssignmentProperties";
-import {Network, NetworkStatus} from "@capacitor/core";
-import {syncLocalUpdates} from "./assignmentApi";
+import {Network, NetworkStatus, Storage} from "@capacitor/core";
+import {closeCircleOutline} from "ionicons/icons";
+import ConflictingAssignment from "./ConflictingAssignment";
 
 const log = getLogger('AssignmentList');
 
@@ -85,8 +87,6 @@ const AssignmentList: React.FC<RouteComponentProps> = ({ history }) => {
       setLoadedAssignments(assignments?.slice(0, 6));
   }, [assignments]);
 
-
-
   async function searchNext($event: CustomEvent<void>) {
     if(assignments && loadedNumber < assignments.length) {
       if(filter)
@@ -127,11 +127,16 @@ const AssignmentList: React.FC<RouteComponentProps> = ({ history }) => {
               debounce={200}
               onIonChange={e => setSearchAssignment(e.detail.value!)}>
           </IonSearchbar>
-          {<IonAlert isOpen={!networkStatus.connected} message={"No internet connection! Using data stored locally!"}/>}
+          {<IonToast isOpen={!networkStatus.connected} duration={2000} message={"No internet connection! Using data stored locally!"}/>}
           {loadedAssignments && loadedAssignments.filter(assign=>{if(filter==="") return true; else return assign.date===filter})
               .filter(assign=>assign.title.indexOf(searchAssignment)>=0)
-              .map(({ _id, title, date, description, pupilID}) =>
-                  <Assignment key={_id} _id={_id} title={title} date={date} description={description} pupilID={pupilID} onClick={id => history.push(`/assignment/${id}`)}/>)}
+              .map(({ _id, title, date, description, pupilID, version}) =>{
+                let assign=conflicts.filter(a=>a._id===_id).length
+                if(assign===1)
+                  return <ConflictingAssignment key={_id} _id={_id} title={title} date={date} description={description} pupilID={pupilID} version={version} onClick={id => history.push(`/assignment/${id}`)}/>
+               return <Assignment key={_id} _id={_id} title={title} date={date} description={description} pupilID={pupilID} version={version} onClick={id => history.push(`/assignment/${id}`)}/>
+              })
+          }
           <IonLoading isOpen={fetching} message="Fetching items"/>
           {fetchingError && <IonAlert isOpen={true} message={"No internet connection! Using data stored locally!"}/>}
           <IonInfiniteScroll threshold="30px" disabled={disableInfiniteScroll}

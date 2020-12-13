@@ -4,4 +4,5 @@ export interface AssignmentProperties {
   description:string;
   pupilID:string;
   date:string;
+  version:number;
 }

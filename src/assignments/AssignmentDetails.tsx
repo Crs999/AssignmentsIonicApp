@@ -10,14 +10,16 @@ import {
   IonTitle,
   IonToolbar,
   IonLabel,
-  IonItem, IonIcon, IonChip
+  IonItem, IonIcon, IonChip,
+  IonToast, IonText,
+  IonFab, IonFabButton
 } from '@ionic/react';
 import { getLogger } from '../core';
-import {AssignmentContext} from './AssignmentProvider';
+import {AssignmentContext, conflicts} from './AssignmentProvider';
 import { RouteComponentProps } from 'react-router';
 import { AssignmentProperties } from './AssignmentProperties';
-import {cloud, cloudOffline} from "ionicons/icons";
-import {Network, NetworkStatus} from "@capacitor/core";
+import {add, checkmark, cloud, cloudOffline, save, server, trash} from "ionicons/icons";
+import {Network, NetworkStatus, Storage} from "@capacitor/core";
 
 
 const log = getLogger('AssignmentDetails');
@@ -55,10 +57,11 @@ export const useNetwork = () => {
 };
 
 const AssignmentDetails: React.FC<DetailedAssignmentProperties> = ({ history, match }) => {
-  const { assignments, saving, savingError,saveAssignment } = useContext(AssignmentContext);
+  const { assignments, saving, savingError,saveAssignment, resolveConflict } = useContext(AssignmentContext);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
+  const [version, setVersion] = useState(-1);
   const [pupilID] = useState('');
   const [item, setItem] = useState<AssignmentProperties>();
   const {networkStatus}=useNetwork();
@@ -71,14 +74,56 @@ const AssignmentDetails: React.FC<DetailedAssignmentProperties> = ({ history, ma
       setTitle(assignment.title);
       setDescription(assignment.description)
       setDate(assignment.date)
-
+      setVersion(assignment.version);
     }
   }, [match.params.id, assignments]);
   const handleSave = () => {
     const editedAssignment = item ?
-        { ...item, title, description, pupilID,date} : { title: title, description: description,date:date, pupilID: pupilID };
+        { ...item, title, description, pupilID,date, version} : { title: title, description: description,date:date, pupilID: pupilID, version:version };
     saveAssignment && saveAssignment(editedAssignment).then(() => history.push("/assignments"));
   };
+
+
+  const keepDataOnServer=async ()=>{
+      let serverItem=conflicts.find(c=>c._id===item?._id);
+      let locals=await Storage.get({key:"assignments"})
+      let localItems=JSON.parse(locals.value||"[]");
+      if(serverItem)
+        for(let i=0;i<localItems.length;i++)
+          if(localItems[i]._id===serverItem._id) {
+            localItems[i] = serverItem;
+            conflicts.splice(conflicts.indexOf(serverItem),1)
+            await Storage.set({key:`conflictingData`, value:JSON.stringify(conflicts)})
+            await Storage.set({key:`assignments`, value:JSON.stringify(localItems)})
+            history.push("/assignments")
+            history.go(0)
+            break;
+          }
+  }
+
+  const changeDataOnServer=async ()=>{
+        console.log("YUP")
+        console.log(item+" "+resolveConflict)
+        const myAssignment = item ?
+        { ...item, title, description, pupilID,date, version} : { title: title, description: description,date:date, pupilID: pupilID, version:version };
+    resolveConflict && resolveConflict(myAssignment).then(async () =>{
+      let serverItem=conflicts.find(c=>c._id===item?._id);
+      if(serverItem) {
+        conflicts.splice(conflicts.indexOf(serverItem), 1)
+        await Storage.set({key: `conflictingData`, value: JSON.stringify(conflicts)})
+      }
+      history.push("/assignments")
+      history.go(0)
+    })
+        // let serverItem=conflicts.find(c=>c._id===item?._id);
+        // if(serverItem) {
+        //   conflicts.splice(conflicts.indexOf(serverItem), 1)
+        //   await Storage.set({key: `conflictingData`, value: JSON.stringify(conflicts)})
+        // }
+        // history.push("/assignments")
+        // history.go(0)
+      }
+
   log('render');
   return (
     <IonPage>
@@ -112,12 +157,37 @@ const AssignmentDetails: React.FC<DetailedAssignmentProperties> = ({ history, ma
           <IonInput value={date} onIonChange={e => setDate(e.detail.value || '')}/>
         </IonItem>
         <IonLoading isOpen={saving} />
+        {conflicts && conflicts.filter(c=>c._id===item?._id).map(({title,description, date})=> {
+          return <>
+            <IonTitle color={"danger"} class={"conflictTitle"}>CONFLICTING ASSIGNMENT</IonTitle>
+            <IonItem>
+              <IonLabel>Title:</IonLabel>
+              <IonInput value={title} onIonChange={e => setTitle(e.detail.value || '')} readonly/>
+            </IonItem>
+            <IonItem>
+              <IonLabel>Content:</IonLabel>
+              <IonInput value={description} onIonChange={e => setDescription(e.detail.value || '')} readonly/>
+            </IonItem>
+            <IonItem>
+              <IonLabel>Date:</IonLabel>
+              <IonInput value={date} onIonChange={e => setDate(e.detail.value || '')} readonly/>
+            </IonItem>
+            <IonFab vertical="bottom" horizontal="start" slot="fixed">
+              <IonFabButton color={"success"} onClick={changeDataOnServer}>
+                <IonIcon icon={save}/>
+              </IonFabButton>
+            </IonFab>
+            <IonFab vertical="bottom" horizontal="end" slot="fixed">
+              <IonFabButton color={"danger"} onClick={keepDataOnServer}>
+                <IonIcon icon={trash}/>
+              </IonFabButton>
+            </IonFab>
+          </>
+        })}
         {savingError && (
             <div>{savingError.message || 'Failed to save item'}</div>
         )}
       </IonContent>
-    </IonPage>
-  );
-};
+    </IonPage>)}
 
 export default AssignmentDetails;

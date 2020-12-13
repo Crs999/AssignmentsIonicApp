@@ -2,23 +2,33 @@ import React, {useCallback, useContext, useEffect, useReducer, useState} from 'r
 import PropTypes from 'prop-types';
 import { getLogger } from '../core';
 import { AssignmentProperties } from './AssignmentProperties';
-import {createAssignment, getAllAssignments, newWebSocket, syncLocalUpdates, updateAssignment} from './assignmentApi';
+import {
+  createAssignment,
+  getAllAssignments,
+  newWebSocket,
+  solveConflict,
+  syncLocalUpdates,
+  updateAssignment
+} from './AssignmentApi';
 import { AuthContext } from '../authentication';
 import {Plugins} from "@capacitor/core";
 import {useNetwork} from "./AssignmentList";
+
 
 const {Storage}=Plugins
 const log = getLogger('ItemProvider');
 
 type SaveAssignmentFunction = (item: AssignmentProperties) => Promise<any>;
-
+type ResolveConflictFunction = (item: AssignmentProperties) => Promise<any>;
+export let conflicts:AssignmentProperties[]=[];
 export interface AssignmentState {
   assignments?: AssignmentProperties[],
   fetching: boolean,
   fetchingError?: Error | null,
   saving: boolean,
   savingError?: Error | null,
-  saveAssignment?: SaveAssignmentFunction,
+  saveAssignment?: SaveAssignmentFunction
+  resolveConflict?:ResolveConflictFunction
 }
 
 interface ActionProps {
@@ -37,6 +47,7 @@ const FETCH_ITEMS_FAILED = 'FETCH_ITEMS_FAILED';
 const SAVE_ITEM_STARTED = 'SAVE_ITEM_STARTED';
 const SAVE_ITEM_SUCCEEDED = 'SAVE_ITEM_SUCCEEDED';
 const SAVE_ITEM_FAILED = 'SAVE_ITEM_FAILED';
+const UPDATED_ITEM_ON_SERVER = 'UPDATED_ITEM_ON_SERVER';
 
 const reducer: (state: AssignmentState, action: ActionProps) => AssignmentState =
     (state, { type, payload }) => {
@@ -61,6 +72,12 @@ const reducer: (state: AssignmentState, action: ActionProps) => AssignmentState 
           return { ...state, assignments: items, saving: false };
         case SAVE_ITEM_FAILED:
           return { ...state, savingError: payload.error, saving: false };
+        case UPDATED_ITEM_ON_SERVER:
+          const elems = [...(state.assignments || [])];
+          const elem = payload.item;
+          const ind = elems.findIndex(it => it._id === elem._id);
+          elems[ind] = elem;
+          return { ...state, assignments: elems};
         default:
           return state;
       }
@@ -75,16 +92,16 @@ interface AssignmentProviderProps {
 export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children }) => {
   const { token } = useContext(AuthContext);
   const [state, dispatch] = useReducer(reducer, initialState);
-  const { assignments, fetching, fetchingError, saving, savingError } = state;
+  const { assignments, fetching, fetchingError, saving, savingError} = state;
   const {networkStatus}=useNetwork();
-  // const [localModifications, setLocalModifications]=useState(false);
   useEffect(getAssignmentsEffect, [token]);
   useEffect(wsEffect, [token]);
   const saveAssignment = useCallback<SaveAssignmentFunction>(saveAssignmentCallback, [token]);
-  const value = { assignments, fetching, fetchingError, saving, savingError, saveAssignment };
+  const resolveConflict = useCallback<ResolveConflictFunction>(resolveConflictCallback, [token]);
+
   log('returns');
   return (
-      <AssignmentContext.Provider value={value}>
+      <AssignmentContext.Provider value={ {assignments, fetching, fetchingError, saving, savingError, saveAssignment, resolveConflict} }>
         {children}
       </AssignmentContext.Provider>
   );
@@ -95,14 +112,15 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
           for(let i=0;i<localStorageData.keys.length;i++)
             if(localStorageData.keys[i].valueOf().includes('assignments'))
               return Storage.get({key:localStorageData.keys[i]});
-
         });
 
       let resp=await syncLocalUpdates(token,JSON.parse(localAssigns?.value || "[]"));
-      console.log(resp)
-      if(resp.valueOf())
+      if(resp.length===0)
         await Storage.set({key: `isModified`, value: `false`})
-      else console.log("Eroare la sincronizare :(((((")
+      else {
+        // console.log("AM PRIMIT DATE "+JSON.stringify(resp))
+        await Storage.set({key:`conflictingData`, value:JSON.stringify(resp)})
+      }
   }
 
   function getAssignmentsEffect() {
@@ -124,11 +142,16 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
           if( isModified && isModified.value==="true") await syncLocalModifications();
           log('fetchAssignments started');
           dispatch({ type: FETCH_ITEMS_STARTED });
-          const items = await getAllAssignments(token);
-          log('fetchAssignments succeeded');
-          if (!canceled) {
-            dispatch({ type: FETCH_ITEMS_SUCCEEDED, payload: {items } });
-          }
+          let conf=await Storage.get({key:"conflictingData"})
+          conflicts=JSON.parse(conf.value || "[]");
+          if(!conflicts || conflicts.length===0) {
+            const items = await getAllAssignments(token);
+            log('fetchAssignments succeeded');
+            if (!canceled) {
+              dispatch({ type: FETCH_ITEMS_SUCCEEDED, payload: {items } });
+            }
+          }else await getLocalData()
+
         } catch (error) {
           await getLocalData();
         }
@@ -149,11 +172,16 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
   }
 
 
+  async function resolveConflictCallback(assignment:AssignmentProperties) {
+    dispatch({type: SAVE_ITEM_STARTED});
+    await (assignment._id && solveConflict(token, assignment));
+  }
+
   async function saveAssignmentCallback(assignment: AssignmentProperties) {
     try {
       log('saveItem started');
       dispatch({type: SAVE_ITEM_STARTED});
-      const savedItem = await (assignment._id ? updateAssignment(token, assignment) : createAssignment(token, assignment));
+      const savedItem = await (assignment._id ? updateAssignment(token, assignment) :createAssignment(token, assignment));
       log('saveItem succeeded');
       dispatch({type: SAVE_ITEM_SUCCEEDED, payload: {item: savedItem}});
     } catch (error) {
@@ -207,7 +235,7 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
         const { type, payload: item } = message;
         log(`ws message, item ${type}`);
         if (type === 'created' || type === 'updated') {
-          dispatch({ type: SAVE_ITEM_SUCCEEDED, payload: { item } });
+          dispatch({ type: UPDATED_ITEM_ON_SERVER, payload: { item:item } });
         }
       });
     }

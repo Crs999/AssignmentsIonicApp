@@ -17,18 +17,30 @@ export const getAllAssignments: (token: string) => Promise<AssignmentProperties[
 }
 
 export const createAssignment: (token: string, item: AssignmentProperties) => Promise<AssignmentProperties[]> = (token, item) => {
+  item.version=0;
   return withLogs(axios.post(assignmentUrl, item, authConfig(token)), 'createItem');
 }
 
 export const updateAssignment: (token: string, item: AssignmentProperties) => Promise<AssignmentProperties[]> = (token, item) => {
   console.log(item)
+  item.version+=1;
   return withLogs(axios.put(`${assignmentUrl}/${item._id}`, item, authConfig(token)), 'updateItem');
 }
 
+export const solveConflict: (token: string, item: AssignmentProperties) => Promise<AssignmentProperties[]> = (token, item) => {
+  return withLogs(axios.put(`${assignmentUrl}/conflict/${item._id}`, item, authConfig(token)), 'resolveConflict');
+}
 
-export const syncLocalUpdates:(token:string,assignments:AssignmentProperties[])=>Promise<Boolean>=(token,assignments)=>{
-  console.log(assignments)
-  return withLogs(axios.post(`${assignmentUrl}/sync`,assignments,authConfig(token)), 'syncLocalUpdates');
+
+export const syncLocalUpdates:(token:string,assignments:AssignmentProperties[])=>Promise<AssignmentProperties[]>=(token,assignments)=>{
+  // let resp=axios.post(`${assignmentUrl}/sync`,assignments,authConfig(token));
+  // resp.catch(async (res)=>await Storage.set({key:`conflictingData`,value:JSON.stringify(res.response.data)}))
+  // return withLogs(resp,'syncLocalUpdates');
+  let resp:Promise<AssignmentProperties[]>=withLogs(axios.post(`${assignmentUrl}/sync`,assignments,authConfig(token)),'syncLocalUpdates');
+  let result=resp
+      .then((res)=>{return res})
+      .catch((res)=>{return res.response.data})
+  return result
 }
 
 interface MessageData {
@@ -51,7 +63,7 @@ export const newWebSocket = (token: string, onMessage: (data: MessageData) => vo
     log('web socket onerror', error);
   };
   ws.onmessage = messageEvent => {
-    log('web socket onmessage');
+    log('web socket onmessage '+messageEvent.data);
     onMessage(JSON.parse(messageEvent.data));
   };
   return () => {

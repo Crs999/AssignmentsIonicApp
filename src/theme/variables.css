@@ -1,16 +1,24 @@
 /* Ionic Variables and Theming. For more info, please see:
 http://ionicframework.com/docs/theming/ */
 
+.conflictTitle{
+  margin-top: 100px;
+  text-decoration: red underline;
+}
+
 .card{
-  background-color: #e4f9ff;
-  border: solid #1a72ef 1px;
+  border: solid #afc6f8 1px;
 }
 
 .card:hover{
-  background-color: #ebf1f3;
-  border: solid #afc6f8 1px;
+  border: solid #1a72ef 1px;
   cursor: pointer;
 }
+
+.conflictSign{
+  height: 100%;
+}
+
 .netChip{
   top: 10px;
   right: 10px;
@@ -22,15 +30,15 @@ http://ionicframework.com/docs/theming/ */
   /** primary **/
   @import url("https://fonts.gstatic.com">
 <link href="https://fonts.googleapis.com/css2?family=Merienda+One&display=swap" rel="stylesheet");
-  --ion-font-family: 'Merienda One', cursive;
+  /*--ion-font-family: 'Merienda One', cursive;*/
   --ion-text-color: #1a72ef;
   --ion-background-color: #f5ffff;
   --ion-color-primary: #bdf2fa;
   --ion-color-primary-rgb: 56, 128, 255;
   --ion-color-primary-contrast: #012751;
   --ion-color-primary-contrast-rgb: 255, 255, 255;
-  --ion-color-primary-shade: #f6d3af;
-  --ion-color-primary-tint: #f5a2b5;
+  --ion-color-primary-shade: #9ef5ef;
+  --ion-color-primary-tint: #a2f5e2;
 
   /** secondary **/
   --ion-color-secondary: #3dc2ff;

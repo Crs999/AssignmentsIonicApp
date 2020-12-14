@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { authConfig, baseUrl, getLogger, withLogs } from '../core';
-import { AssignmentProperties } from './AssignmentProperties';
+import {authConfig, baseUrl, getLogger, withLogs} from '../core';
+import {AssignmentProperties} from './AssignmentProperties';
 import {Storage} from "@capacitor/core";
 
 const assignmentUrl = `http://${baseUrl}/api/assignment`;
@@ -33,14 +33,14 @@ export const solveConflict: (token: string, item: AssignmentProperties) => Promi
 
 
 export const syncLocalUpdates:(token:string,assignments:AssignmentProperties[])=>Promise<AssignmentProperties[]>=(token,assignments)=>{
-  // let resp=axios.post(`${assignmentUrl}/sync`,assignments,authConfig(token));
-  // resp.catch(async (res)=>await Storage.set({key:`conflictingData`,value:JSON.stringify(res.response.data)}))
-  // return withLogs(resp,'syncLocalUpdates');
   let resp:Promise<AssignmentProperties[]>=withLogs(axios.post(`${assignmentUrl}/sync`,assignments,authConfig(token)),'syncLocalUpdates');
-  let result=resp
-      .then((res)=>{return res})
-      .catch((res)=>{return res.response.data})
-  return result
+  return resp
+      .then((res) => {
+        return res
+      })
+      .catch((res) => {
+        return res.response.data
+      })
 }
 
 interface MessageData {

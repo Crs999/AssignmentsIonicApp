@@ -27,6 +27,7 @@ import {AssignmentProperties} from "./AssignmentProperties";
 import {Network, NetworkStatus, Storage} from "@capacitor/core";
 import {closeCircleOutline} from "ionicons/icons";
 import ConflictingAssignment from "./ConflictingAssignment";
+import {LocationState} from "@ionic/react-router/dist/types/ReactRouter/IonRouter";
 
 const log = getLogger('AssignmentList');
 
@@ -66,13 +67,12 @@ const AssignmentList: React.FC<RouteComponentProps> = ({ history }) => {
   const [searchAssignment, setSearchAssignment] = useState<string>('');
   const [filter, setFilter] = useState<string>('');
   const [loadedNumber, setLoadedNumber]=useState(6);
-  const {networkStatus}=useNetwork();
+  const {networkStatus}=useNetwork()
   log('render');
   const handleLogout=()=>{
     log('handleLogin...');
     logout?.();
   };
-
 
   function getIonOptions() {
     const options: string[] = [""];

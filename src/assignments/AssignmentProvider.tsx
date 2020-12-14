@@ -62,7 +62,7 @@ const reducer: (state: AssignmentState, action: ActionProps) => AssignmentState 
           return { ...state, savingError: null, saving: true };
         case SAVE_ITEM_SUCCEEDED:
           const items = [...(state.assignments || [])];
-          const item = payload.item;
+          const item = payload.assignment;
           const index = items.findIndex(it => it._id === item._id);
           if (index === -1) {
             items.splice(0, 0, item);
@@ -74,7 +74,7 @@ const reducer: (state: AssignmentState, action: ActionProps) => AssignmentState 
           return { ...state, savingError: payload.error, saving: false };
         case UPDATED_ITEM_ON_SERVER:
           const elems = [...(state.assignments || [])];
-          const elem = payload.item;
+          const elem = payload.assignment;
           const ind = elems.findIndex(it => it._id === elem._id);
           elems[ind] = elem;
           return { ...state, assignments: elems};
@@ -183,7 +183,7 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
       dispatch({type: SAVE_ITEM_STARTED});
       const savedItem = await (assignment._id ? updateAssignment(token, assignment) :createAssignment(token, assignment));
       log('saveItem succeeded');
-      dispatch({type: SAVE_ITEM_SUCCEEDED, payload: {item: savedItem}});
+      dispatch({type: SAVE_ITEM_SUCCEEDED, payload: {assignment: savedItem}});
     } catch (error) {
       await saveLocalData(assignment);
     }
@@ -220,7 +220,7 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
     }
 
     await Storage.set({key: `isModified`, value: `true`})
-    dispatch({type: SAVE_ITEM_SUCCEEDED, payload: {item: assignment}});
+    dispatch({type: SAVE_ITEM_SUCCEEDED, payload: {assignment: assignment}});
   }
 
   function wsEffect() {
@@ -232,10 +232,12 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
         if (canceled) {
           return;
         }
-        const { type, payload: item } = message;
+        const { type, payload: assignment } = message;
         log(`ws message, item ${type}`);
         if (type === 'created' || type === 'updated') {
-          dispatch({ type: UPDATED_ITEM_ON_SERVER, payload: { item:item } });
+          dispatch({ type: SAVE_ITEM_SUCCEEDED, payload: { assignment:assignment } });
+        }else if (type === 'resolvedConflict') {
+          dispatch({ type: UPDATED_ITEM_ON_SERVER, payload: { assignment:assignment } });
         }
       });
     }

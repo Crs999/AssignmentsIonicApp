@@ -101,28 +101,27 @@ const AssignmentDetails: React.FC<DetailedAssignmentProperties> = ({ history, ma
           }
   }
 
-  const changeDataOnServer=async ()=>{
-        console.log("YUP")
-        console.log(item+" "+resolveConflict)
-        const myAssignment = item ?
-        { ...item, title, description, pupilID,date, version} : { title: title, description: description,date:date, pupilID: pupilID, version:version };
-    resolveConflict && resolveConflict(myAssignment).then(async () =>{
-      let serverItem=conflicts.find(c=>c._id===item?._id);
-      if(serverItem) {
+  const changeDataOnServer=async ()=> {
+    console.log("YUP")
+    console.log(item + " " + resolveConflict)
+    const myAssignment = item ?
+        {...item, title, description, pupilID, date, version} : {
+          title: title,
+          description: description,
+          date: date,
+          pupilID: pupilID,
+          version: version
+        };
+    resolveConflict && resolveConflict(myAssignment).then(async () => {
+      let serverItem = conflicts.find(c => c._id === item?._id);
+      if (serverItem) {
         conflicts.splice(conflicts.indexOf(serverItem), 1)
         await Storage.set({key: `conflictingData`, value: JSON.stringify(conflicts)})
       }
       history.push("/assignments")
       history.go(0)
     })
-        // let serverItem=conflicts.find(c=>c._id===item?._id);
-        // if(serverItem) {
-        //   conflicts.splice(conflicts.indexOf(serverItem), 1)
-        //   await Storage.set({key: `conflictingData`, value: JSON.stringify(conflicts)})
-        // }
-        // history.push("/assignments")
-        // history.go(0)
-      }
+  }
 
   log('render');
   return (
@@ -173,11 +172,13 @@ const AssignmentDetails: React.FC<DetailedAssignmentProperties> = ({ history, ma
               <IonInput value={date} onIonChange={e => setDate(e.detail.value || '')} readonly/>
             </IonItem>
             <IonFab vertical="bottom" horizontal="start" slot="fixed">
+              <IonLabel>Save your data</IonLabel>
               <IonFabButton color={"success"} onClick={changeDataOnServer}>
                 <IonIcon icon={save}/>
               </IonFabButton>
             </IonFab>
             <IonFab vertical="bottom" horizontal="end" slot="fixed">
+              <IonLabel>Drop your data</IonLabel>
               <IonFabButton color={"danger"} onClick={keepDataOnServer}>
                 <IonIcon icon={trash}/>
               </IonFabButton>

@@ -1,14 +1,15 @@
 import React from 'react';
-import {IonCardSubtitle, IonIcon, IonCardContent, IonCard, IonItem} from '@ionic/react';
+import {IonCardSubtitle, IonIcon, IonCardContent, IonCard, IonItem, IonImg} from '@ionic/react';
 import { AssignmentProperties } from './AssignmentProperties';
 import {book, pencil, closeCircleSharp} from "ionicons/icons";
 import {IonCardTitle} from "@ionic/react";
-
+import {usePhotoGallery} from "../core/usePhotoGallery"
 interface AssignmentPropertiesExt extends AssignmentProperties {
     onClick: (_id?: string) => void;
 }
 
-const ConflictingAssignment: React.FC<AssignmentPropertiesExt> = ({ _id, title,description, onClick }) => {
+const ConflictingAssignment: React.FC<AssignmentPropertiesExt> = ({ _id, title,description,photoURL, onClick }) => {
+    const { photos } = usePhotoGallery();
     return (
         <IonItem class={"card"} onClick={() => onClick(_id)}>
                 <IonCardContent>
@@ -18,6 +19,9 @@ const ConflictingAssignment: React.FC<AssignmentPropertiesExt> = ({ _id, title,d
                     <IonCardSubtitle>{description}</IonCardSubtitle>
                 </IonCardContent>
             <IonIcon icon={closeCircleSharp} color={"danger"} class={"conflictSign"} slot={"end"}/>
+            {photos.filter(photo=>photo.filepath===photoURL).map((photo, index) => (
+                <IonImg src={photo.webviewPath} class={"listImg"}/>
+            ))}
         </IonItem>
     )}
 export default ConflictingAssignment;

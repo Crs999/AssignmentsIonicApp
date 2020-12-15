@@ -1,6 +1,15 @@
 /* Ionic Variables and Theming. For more info, please see:
 http://ionicframework.com/docs/theming/ */
+.photoCard{
+  width:30%;
+  height: 30%; /* 1:1 Aspect Ratio */
+}
 
+.listImg{
+  width:10%;
+  height: 90%; /* 1:1 Aspect Ratio */
+  float: right;
+}
 .conflictTitle{
   margin-top: 100px;
   text-decoration: red underline;
@@ -9,7 +18,9 @@ http://ionicframework.com/docs/theming/ */
 .card{
   border: solid #afc6f8 1px;
 }
-
+.mapBtn{
+  margin-top: 100px;
+}
 .card:hover{
   border: solid #1a72ef 1px;
   cursor: pointer;

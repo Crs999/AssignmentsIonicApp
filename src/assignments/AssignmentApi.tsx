@@ -1,5 +1,5 @@
 import axios from 'axios';
-import {authConfig, baseUrl, getLogger, withLogs} from '../core';
+import {authConfig, baseUrl, conflictConfig, getLogger, withLogs} from '../core';
 import {AssignmentProperties} from './AssignmentProperties';
 import {Storage} from "@capacitor/core";
 
@@ -17,13 +17,13 @@ export const getAllAssignments: (token: string) => Promise<AssignmentProperties[
 }
 
 export const createAssignment: (token: string, item: AssignmentProperties) => Promise<AssignmentProperties[]> = (token, item) => {
-  item.version=0;
+  item.version=new Date().toUTCString();
   return withLogs(axios.post(assignmentUrl, item, authConfig(token)), 'createItem');
 }
 
 export const updateAssignment: (token: string, item: AssignmentProperties) => Promise<AssignmentProperties[]> = (token, item) => {
   console.log(item)
-  item.version+=1;
+  item.version=new Date().toUTCString();
   return withLogs(axios.put(`${assignmentUrl}/${item._id}`, item, authConfig(token)), 'updateItem');
 }
 
@@ -32,8 +32,20 @@ export const solveConflict: (token: string, item: AssignmentProperties) => Promi
 }
 
 
-export const syncLocalUpdates:(token:string,assignments:AssignmentProperties[])=>Promise<AssignmentProperties[]>=(token,assignments)=>{
-  let resp:Promise<AssignmentProperties[]>=withLogs(axios.post(`${assignmentUrl}/sync`,assignments,authConfig(token)),'syncLocalUpdates');
+export const syncLocalUpdates:(token:string,assignments:AssignmentProperties[])=>Promise<string[]>=(token,assignments)=>{
+  let resp:Promise<string[]>=withLogs(axios.post(`${assignmentUrl}/sync`,assignments,authConfig(token)),'syncLocalUpdates');
+  return resp
+      .then((res) => {
+        return res
+      })
+      .catch((res) => {
+        return res.response.data
+      })
+}
+
+
+export const getConf:(token:string, id:string, version:string)=>Promise<AssignmentProperties>=(token, id, version)=>{
+  let resp:Promise<AssignmentProperties>=withLogs(axios.get(`${assignmentUrl}/conflict/${id}`,conflictConfig(token, version)),'getConflict');
   return resp
       .then((res) => {
         return res

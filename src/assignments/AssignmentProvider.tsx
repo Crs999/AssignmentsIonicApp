@@ -4,15 +4,18 @@ import { getLogger } from '../core';
 import { AssignmentProperties } from './AssignmentProperties';
 import {
   createAssignment,
-  getAllAssignments,
+  getAllAssignments, getConf,
   newWebSocket,
   solveConflict,
   syncLocalUpdates,
   updateAssignment
 } from './AssignmentApi';
 import { AuthContext } from '../authentication';
-import {Plugins} from "@capacitor/core";
-import {useNetwork} from "./AssignmentList";
+import {FilesystemDirectory, Plugins} from "@capacitor/core";
+import {useNetwork} from "../core/useNetworkState";
+import {Photo, usePhotoGallery} from "../core/usePhotoGallery";
+import {useStorage} from "@ionic/react-hooks/storage";
+import {useFilesystem} from "@ionic/react-hooks/filesystem";
 
 
 const {Storage}=Plugins
@@ -20,7 +23,8 @@ const log = getLogger('ItemProvider');
 
 type SaveAssignmentFunction = (item: AssignmentProperties) => Promise<any>;
 type ResolveConflictFunction = (item: AssignmentProperties) => Promise<any>;
-export let conflicts:AssignmentProperties[]=[];
+type GetConflictFunction = (id:string, version:string) =>Promise<any>;
+export let conflicts:string[]=[];
 export interface AssignmentState {
   assignments?: AssignmentProperties[],
   fetching: boolean,
@@ -29,6 +33,8 @@ export interface AssignmentState {
   savingError?: Error | null,
   saveAssignment?: SaveAssignmentFunction
   resolveConflict?:ResolveConflictFunction
+  getConflict?:GetConflictFunction
+  // currentConflict?:AssignmentProperties
 }
 
 interface ActionProps {
@@ -96,15 +102,20 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
   const {networkStatus}=useNetwork();
   useEffect(getAssignmentsEffect, [token]);
   useEffect(wsEffect, [token]);
+
   const saveAssignment = useCallback<SaveAssignmentFunction>(saveAssignmentCallback, [token]);
   const resolveConflict = useCallback<ResolveConflictFunction>(resolveConflictCallback, [token]);
+  // const [currentConflict, setCurrentConflict]=useState<AssignmentProperties>();
 
+  const getConflict = useCallback<GetConflictFunction>(getConflictCallback, [token]);
   log('returns');
   return (
-      <AssignmentContext.Provider value={ {assignments, fetching, fetchingError, saving, savingError, saveAssignment, resolveConflict} }>
+      <AssignmentContext.Provider value={ {assignments, fetching, fetchingError, saving, savingError, saveAssignment, resolveConflict, getConflict} }>
         {children}
       </AssignmentContext.Provider>
   );
+
+
 
   async function syncLocalModifications() {
     let localAssigns = await Storage.keys()
@@ -120,6 +131,7 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
       else {
         // console.log("AM PRIMIT DATE "+JSON.stringify(resp))
         await Storage.set({key:`conflictingData`, value:JSON.stringify(resp)})
+        // conflicts=resp;
       }
   }
 
@@ -148,7 +160,7 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
             const items = await getAllAssignments(token);
             log('fetchAssignments succeeded');
             if (!canceled) {
-              dispatch({ type: FETCH_ITEMS_SUCCEEDED, payload: {items } });
+              dispatch({ type: FETCH_ITEMS_SUCCEEDED, payload: {items} });
             }
           }else await getLocalData()
 
@@ -156,9 +168,13 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
           await getLocalData();
         }
       }
+      setPhotosToLocalStorage();
     }
   }
 
+  function setPhotosToLocalStorage(){
+
+  }
 
   async function getLocalData(){
     let localAssignments = await Storage.keys()
@@ -171,6 +187,11 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
     dispatch({type: FETCH_ITEMS_SUCCEEDED, payload: {items:JSON.parse(localAssignments?.value || '{}')}})
   }
 
+  async function getConflictCallback(id:string, version:string) {
+    let res=await getConf(token, id, version);
+    // setCurrentConflict(res);
+    return res
+  }
 
   async function resolveConflictCallback(assignment:AssignmentProperties) {
     dispatch({type: SAVE_ITEM_STARTED});
@@ -187,6 +208,8 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
     } catch (error) {
       await saveLocalData(assignment);
     }
+    let modified=await Storage.get({key: `isModified`})
+    if(modified.value==='false') window.history.go(0)
   }
 
   async function saveLocalData(assignment:AssignmentProperties){
@@ -238,6 +261,7 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
           dispatch({ type: SAVE_ITEM_SUCCEEDED, payload: { assignment:assignment } });
         }else if (type === 'resolvedConflict') {
           dispatch({ type: UPDATED_ITEM_ON_SERVER, payload: { assignment:assignment } });
+          window.history.go(0)
         }
       });
     }

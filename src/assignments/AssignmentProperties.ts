@@ -4,5 +4,9 @@ export interface AssignmentProperties {
   description:string;
   pupilID:string;
   date:string;
-  version:number;
+  // version:number;
+  version:string;
+  photoURL:string;
+  lat?:number;
+  lng?:number;
 }

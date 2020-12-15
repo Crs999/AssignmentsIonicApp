@@ -24,43 +24,13 @@ import { getLogger } from '../core';
 import {AssignmentContext, conflicts} from './AssignmentProvider';
 import {AuthContext} from "../authentication";
 import {AssignmentProperties} from "./AssignmentProperties";
-import {Network, NetworkStatus, Storage} from "@capacitor/core";
-import {closeCircleOutline} from "ionicons/icons";
 import ConflictingAssignment from "./ConflictingAssignment";
-import {LocationState} from "@ionic/react-router/dist/types/ReactRouter/IonRouter";
+import {useNetwork} from "../core/useNetworkState";
 
 const log = getLogger('AssignmentList');
 
-const initialNetworkState = {
-  connected: false,
-  connectionType: 'unknown',
-}
-
-export const useNetwork = () => {
-  const [networkStatus, setNetworkStatus] = useState(initialNetworkState)
-  useEffect(() => {
-    const handler = Network.addListener('networkStatusChange', handleNetworkStatusChange);
-    Network.getStatus().then(handleNetworkStatusChange);
-    let canceled = false;
-    return () => {
-      canceled = true;
-      //foarte important sa nu facem memory leaks - consuma resurse aiurea
-      handler.remove(); //la useEfect se exec functia din el o singura data si are sansa sa returneze o alta functie care sa se distruga atunci cand componenta Home este distrusa
-    }
-
-    function handleNetworkStatusChange(status: NetworkStatus) {
-      console.log('useNetwork - status change', status);
-      if (!canceled) {
-        setNetworkStatus(status);
-      }
-    }
-  }, [])
-  return { networkStatus };
-};
-
-
 const AssignmentList: React.FC<RouteComponentProps> = ({ history }) => {
-  const { assignments, fetching, fetchingError } = useContext(AssignmentContext);
+  const { assignments, fetching, fetchingError} = useContext(AssignmentContext);
   const { logout } = useContext(AuthContext);
   const [disableInfiniteScroll, setDisableInfiniteScroll] = useState<boolean>(false);
   const [loadedAssignments, setLoadedAssignments]=useState<AssignmentProperties[]>([]);
@@ -130,11 +100,15 @@ const AssignmentList: React.FC<RouteComponentProps> = ({ history }) => {
           {<IonToast isOpen={!networkStatus.connected} duration={2000} message={"No internet connection! Using data stored locally!"}/>}
           {loadedAssignments && loadedAssignments.filter(assign=>{if(filter==="") return true; else return assign.date===filter})
               .filter(assign=>assign.title.indexOf(searchAssignment)>=0)
-              .map(({ _id, title, date, description, pupilID, version}) =>{
-                let assign=conflicts.filter(a=>a._id===_id).length
-                if(assign===1)
-                  return <ConflictingAssignment key={_id} _id={_id} title={title} date={date} description={description} pupilID={pupilID} version={version} onClick={id => history.push(`/assignment/${id}`)}/>
-               return <Assignment key={_id} _id={_id} title={title} date={date} description={description} pupilID={pupilID} version={version} onClick={id => history.push(`/assignment/${id}`)}/>
+              .map(({ _id, title, date, description, pupilID, version, photoURL}) => {
+                let assign = conflicts.filter(a => a === _id).length
+                if (assign === 1)
+                  return <ConflictingAssignment key={_id} _id={_id} title={title} date={date} description={description}
+                                                pupilID={pupilID} version={version} photoURL={photoURL}
+                                                onClick={id => history.push(`/assignment/${id}`)} />
+                return <Assignment key={_id} _id={_id} title={title} date={date} description={description}
+                                   pupilID={pupilID} version={version}  photoURL={photoURL}
+                                   onClick={id => history.push(`/assignment/${id}`)}/>
               })
           }
           <IonLoading isOpen={fetching} message="Fetching items"/>

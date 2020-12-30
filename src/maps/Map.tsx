@@ -2,7 +2,7 @@ import React from "react";
 import { withScriptjs, withGoogleMap, GoogleMap, Marker } from 'react-google-maps';
 import { compose, withProps } from 'recompose';
 import { mapsApiKey } from './mapsApiKey';
-import {useLocation} from "./useLocation";
+
 
 interface MapProperties {
     lat?: number;
